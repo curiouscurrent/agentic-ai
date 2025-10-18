@@ -1,0 +1,190 @@
+# graph created in langgraph will be maintained here.
+# testing if the basic llm call works
+
+#load the api key
+from dotenv import load_dotenv
+load_dotenv()
+
+#keys present in .env successfully loaded
+from langchain_groq import ChatGroq
+llm = ChatGroq(model="openai/gpt-oss-120b")
+# resp = llm.invoke("Who invented kriya yoga. answer in 1 sentence")
+
+from pydantic import BaseModel
+
+# Schema is a class derived from pydantic basemodel
+class Schema(BaseModel):
+    esp : float
+    price : float
+
+# method in langchain called structured_output
+resp = llm.with_structured_output(Schema).invoke("Extract price and eps from this report"
+                                                     "NVIDIA reported quarterly eps of 2.3 and"
+                                                     "their current price is 100$")
+#resp_upd is an object of class Schema
+print(resp)
+
+-------------------------
+initially the state is only having user prompt
+now once the state is passed to the planner node, we get a plan
+now this plan is passed on to the architect node,
+this architect node will provide the implementation details of each file in detail
+
+pydantic is a model validation library
+it will allow additional elements in the class although its not defined in your class
+
+--------------------------------
+graph.py file below
+--------------------------------
+import os, sys
+from gc import set_debug
+from langchain import hub
+from langchain.agents import create_react_agent
+from langchain.globals import set_verbose,set_debug
+
+
+
+sys.path.append(os.path.dirname(__file__))
+#import all the prompts from prompts.py
+from agent.prompts import *
+# import the langgraph schemas
+from agent.states import *
+#import the tools
+from agent.tools import write_file, read_file, get_current_directory, list_files
+
+
+#load the api key
+from dotenv import load_dotenv
+load_dotenv()
+
+# to get internal details, token usage,etc
+set_debug(True)
+set_verbose(True)
+
+# langgraph
+# states (where we take the user prompt) -> planner node -> architect node ->
+# coder node(has multiple iterations) -> end
+# every node in the graph takes state as an input and outputs state
+
+from langgraph.constants import END
+from langgraph.graph import StateGraph
+
+from pydantic import BaseModel,Field
+
+#keys present in .env successfully loaded
+from langchain_groq import ChatGroq
+llm = ChatGroq(model="openai/gpt-oss-120b")
+#llm = ChatGroq(model="openai/gpt-oss-20b")
+
+
+#user prompt is something we will get from the state
+def planner_agent(state : dict) -> dict:
+    user_prompt = state["user_prompt"]
+    resp = llm.with_structured_output(Plan).invoke(planner_prompt(user_prompt))
+    if resp is None:
+        raise ValueError("Planner did not return a valid response.")
+    return {"plan": resp}
+
+#creating architect_agent function
+# we will have state as an input as well as an output
+#here we need to get the plan from the planner node
+# and to maintain the whole context we will need the plan as well as the task plan
+# resp will be of type TaskPlan, so we can add the plan from the previous planner node
+def architect_agent(state: dict) -> dict:
+    plan : Plan = state["plan"]
+    resp = llm.with_structured_output(TaskPlan).invoke(architect_prompt(plan))
+    if resp is None:
+        raise ValueError("Architect did not return a valid response.")
+
+    resp.plan = plan
+    #now the output will also have the original plan
+    return {"task_plan": resp}
+
+#we will create the function for coder_agent
+#based on the task description in the task plan the coder agent will write the code in the
+# respective file
+# coder agent performs all the implementation steps from the taskplan
+#implementation steps is an array
+# and for each step the coder agent will write code
+def coder_agent(state : dict) -> dict:
+    steps = state['task_plan'].implementation_steps
+    curr_step_idx = 0
+    curr_task = steps[curr_step_idx]
+    existing_content = read_file.run(curr_task.filepath)
+    user_prompt = (
+        f"Task : {curr_task.task_description}\n"
+        f"File : {curr_task.filepath}\n"
+        f"Existing content : \n{existing_content}\n"
+        "Use write_file(path,content) to save your changes."
+    )
+    system_prompt = coder_system_prompt()
+    #coder agent implements a task
+    # now we will combine the system prompt and the user prompt
+    #basically we tell the coder system prompt to generate the coder for the task
+    #description provided by the user_prompt
+    #resp = llm.invoke(system_prompt + user_prompt)
+    #resp.content will return the actual code
+
+    # 1. Load the ReAct Agent Prompt from the LangChain Hub
+    # This is a standard prompt for ReAct agents
+    react_prompt = hub.pull("hwchase17/react")
+
+    #just think you are a programmer
+    #these are the functions you need
+    #reading from a file, writing to the file,knowing what files are present, directory
+    coder_tools = [read_file,write_file,list_files,get_current_directory]
+
+    # 1. FIX: Bind the tools to the LLM
+    # This ensures that when LangChain sends the request to the Groq API,
+    # the tool definitions are included, allowing the model to use them.
+    llm_with_tools = llm.bind_tools(coder_tools)
+    react_agent = create_react_agent(llm_with_tools, coder_tools,react_prompt)
+
+    '''
+        react_agent.invoke({"messages": [{"role": "system", "content": system_prompt},
+                                     {"role": "user", "content": user_prompt}]})
+    '''
+    # Create the full prompt string
+    full_prompt_for_agent = f"{system_prompt}\n\n{user_prompt}"
+
+    # Corrected invocation: pass a single dictionary with 'input' and 'intermediate_steps'
+    react_agent.invoke({
+        "input": full_prompt_for_agent,
+        "intermediate_steps": []
+    })
+
+
+    #return empty state for now since code is being written on the disk
+    return {}
+    #return {"code" : resp.content}
+
+
+#first we will create the planner node
+#and we will create a function named planner_agent
+# structure of the state we are passing
+graph = StateGraph(dict)
+graph.add_node("planner",planner_agent)
+#adding architect node now and we will create a function named architect_agent
+graph.add_node("architect",architect_agent)
+#now we will add the coder node
+graph.add_node("coder",coder_agent)
+#now add the edge between planner and architect
+graph.add_edge("planner", "architect")
+#now add the edge between architect to coder
+graph.add_edge("architect", "coder")
+graph.set_entry_point("planner")
+#initially only the state is passed to the planner node
+#but when it comes from the planner node it will contain both the user prompt and the plan
+
+agent = graph.compile()
+user_prompt = "create a simple calculator web application"
+result = agent.invoke({"user_prompt":user_prompt})
+
+
+if __name__ == '__main__':
+    user_prompt = "create a simple calculator web application"
+    result = agent.invoke({"user_prompt":user_prompt})
+    print(result)
+
+# features in the form of jira stories(individual programming tasks)
+---------------------------------------------------------------------
