@@ -5,7 +5,7 @@
 3) GPT-OSS-120B
 4) GROQ CLOUD
 
-## DEMO :
+## DEMO : (METHOD - 1)
 
 1) https://github.com/curiouscurrent/agentic-ai/blob/main/1.mp4
 2) https://github.com/curiouscurrent/agentic-ai/blob/main/2.mp4
@@ -23,6 +23,11 @@
    <img width="748" height="573" alt="image" src="https://github.com/user-attachments/assets/05445d6f-cdbc-4c11-8b10-5e43ef833b65" />
    <img width="700" height="556" alt="image" src="https://github.com/user-attachments/assets/25973aa4-2e98-4bca-bcd6-f8032458b997" />
    <img width="738" height="555" alt="image" src="https://github.com/user-attachments/assets/a511365c-3695-4fe9-bc81-e8fc75bb60e1" />
+
+## DEMO : (METHOD - 2)
+
+
+
 
 
 
