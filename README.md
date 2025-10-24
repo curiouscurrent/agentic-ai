@@ -24,7 +24,19 @@
    <img width="700" height="556" alt="image" src="https://github.com/user-attachments/assets/25973aa4-2e98-4bca-bcd6-f8032458b997" />
    <img width="738" height="555" alt="image" src="https://github.com/user-attachments/assets/a511365c-3695-4fe9-bc81-e8fc75bb60e1" />
 
-## DEMO : (METHOD - 2)
+### DEMO : (METHOD - 2) : Using Google Agent Development Kit
+
+https://www.dropbox.com/scl/fi/rbyk6y38h3obfreal89gh/software_labs_ai_agent_developer_anusha_k_demo.mp4?rlkey=3zbibtz3xrsrzhtom68i73qau&st=878qy442&dl=0
+
+<img width="1363" height="684" alt="image" src="https://github.com/user-attachments/assets/ec68705b-6705-45c3-b76b-9e4b35898cc1" />
+
+<img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/88e82d9a-b7ad-41f1-a150-9889cc95fb66" />
+
+<img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/045caa1a-73bb-4bbd-bb40-706a6268aa57" />
+
+
+
+
 
 
 
